@@ -1,0 +1,20 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:five="http://namespaces.zope.org/five"
+    xmlns:i18n="http://namespaces.zope.org/i18n"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="oxfama.transmogrifier">
+
+  <five:registerPackage package="." initialize=".initialize" />
+
+  <includeDependencies package="." />
+
+  <genericsetup:registerProfile
+      name="contentdump"
+      title="Oxfam America Site Dump"
+      directory="profiles/contentdump"
+      description="Dump site content to csv files"
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+</configure>

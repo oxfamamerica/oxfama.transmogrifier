@@ -1,0 +1,16 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:transmogrifier="http://namespaces.plone.org/transmogrifier"
+    i18n_domain="collective.transmogrifier">
+
+  <include package="collective.transmogrifier"/>
+  <include package="collective.transmogrifier" file="meta.zcml"/>
+
+  <transmogrifier:registerConfig
+      name="oxfama.transmogrifier.export.content_to_csv"
+      title="Dump Plone content data to csv files"
+      description=""
+      configuration="content_to_csv.cfg"
+      />
+
+</configure>
