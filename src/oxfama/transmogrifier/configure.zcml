@@ -16,5 +16,11 @@
       description="Dump site content to csv files"
       provides="Products.GenericSetup.interfaces.EXTENSION"
       />
+  
+  <utility factory=".hidden_profiles.HiddenProfiles"
+           name="oxfama.transmogrifier" />
+
+  <utility factory=".hidden_profiles.UninstallableProduct"
+           name="oxfama.transmogrifier" />
 
 </configure>
