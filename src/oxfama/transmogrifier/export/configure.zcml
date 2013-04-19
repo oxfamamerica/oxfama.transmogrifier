@@ -13,4 +13,9 @@
       configuration="content_to_csv.cfg"
       />
 
+  <utility
+      component=".blueprints.CountLimitedSitewalkerSection"
+      name="oxfama.transmogrifier.sitewalker"
+      />
+
 </configure>
