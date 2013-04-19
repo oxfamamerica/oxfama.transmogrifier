@@ -8,6 +8,8 @@
   <five:registerPackage package="." initialize=".initialize" />
 
   <includeDependencies package="." />
+  
+  <include package=".export" />
 
   <genericsetup:registerProfile
       name="contentdump"
