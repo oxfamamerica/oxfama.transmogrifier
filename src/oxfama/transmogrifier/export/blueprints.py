@@ -1,3 +1,5 @@
+import os.path
+
 from zope.interface import classProvides, implements
 from zope.annotation.interfaces import IAnnotations
 
@@ -6,6 +8,8 @@ from Products.Archetypes.interfaces import IBaseFolder
 from collective.transmogrifier.interfaces import ISection, ISectionBlueprint
 from collective.transmogrifier.utils import defaultMatcher
 from quintagroup.transmogrifier.sitewalker import SiteWalkerSection
+
+from oxfama.transmogrifier.export.unicode_csv import UnicodeDictWriter
 
 
 class CountLimitedSitewalkerSection(SiteWalkerSection):
@@ -59,9 +63,9 @@ class CSVWriterSection(object):
     implements(ISection)
 
     def __init__(self, transmogrifier, name, options, previous):
-        import pdb; pdb.set_trace( )
         self.transmogrifier = transmogrifier
         self.options = options
+        self.previous = previous
         self.fileskey = defaultMatcher(options, 'files-key', name, 'files')
         self.pathkey = defaultMatcher(options, 'path-key', name, 'path')
         self.typekey = defaultMatcher(options, 'type-key', name, 'type',
@@ -71,7 +75,6 @@ class CSVWriterSection(object):
         self.destination = self.options.get('destination', '/tmp')
 
     def __iter__(self):
-        import pdb; pdb.set_trace( )
         for item in self.previous:
             keys = item.keys()
             fileskey = self.fileskey(*keys)[0]
@@ -87,8 +90,8 @@ class CSVWriterSection(object):
 
             fieldnames = ['path', ]
             row = {'path': item_path}
-            csv_filename = "%.csv" % item_type.lower().replace(' ', '_')
-            for source, fileinfo in filesstore:
+            csv_filename = "%s.csv" % item_type.lower().replace(' ', '_')
+            for source, fileinfo in filesstore.items():
                 data = fileinfo.get('data', '')
                 if not data:
                     # no data for this file
@@ -98,13 +101,22 @@ class CSVWriterSection(object):
                 fieldnames.append(source)
                 row.update({source: 'present'})
 
-                # put fieldnames and row into csvfileinfo
-                csvfileinfo = self.storage.setdefault(
-                    csv_filename, {'fieldnames': [], 'rows': []})
-                csvfileinfo['fieldnames'] = tuple(
-                    set(fieldnames + csvfileinfo['fieldnames']))
-                csvfileinfo['rows'].append(row)
+            # put fieldnames and row into csvfileinfo
+            csvfileinfo = self.storage.setdefault(
+                csv_filename, {'fieldnames': [], 'rows': []})
+            csvfileinfo['fieldnames'] = list(
+                set(fieldnames + csvfileinfo['fieldnames']))
+            csvfileinfo['rows'].append(row)
 
             yield item
 
         # after iteration is done
+        for filename, contents in self.storage.items():
+            filepath = os.path.join(self.destination, filename)
+            with open(filepath, 'w') as fh:
+                fieldnames = contents.get('fieldnames', [])
+                writer = UnicodeDictWriter(fh, fieldnames, restval=u'')
+                writer.writerow(dict([(fn, fn) for fn in fieldnames]))
+                writer.writerows(contents.get('rows', []))
+        # clean up
+        self.storage = {}
