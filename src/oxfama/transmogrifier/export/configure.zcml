@@ -18,4 +18,9 @@
       name="oxfama.transmogrifier.sitewalker"
       />
 
+  <utility
+      component=".blueprints.CSVWriterSection"
+      name="oxfama.transmogrifier.csvwriter"
+      />
+
 </configure>
