@@ -2,14 +2,18 @@ import os.path
 
 from zope.interface import classProvides, implements
 from zope.annotation.interfaces import IAnnotations
+from plone.uuid.interfaces import IUUID
 
 from Products.CMFCore.interfaces import IFolderish
+from Products.Archetypes import atapi
 from Products.Archetypes.interfaces import IBaseFolder
+from Products.Archetypes.interfaces import IBaseObject
 from collective.transmogrifier.interfaces import ISection, ISectionBlueprint
 from collective.transmogrifier.utils import defaultMatcher
 from quintagroup.transmogrifier.sitewalker import SiteWalkerSection
 
 from oxfama.transmogrifier.export.unicode_csv import UnicodeDictWriter
+from oxfama.transmogrifier.export.unicode_csv import force_unicode
 
 
 class CountLimitedSitewalkerSection(SiteWalkerSection):
@@ -28,7 +32,9 @@ class CountLimitedSitewalkerSection(SiteWalkerSection):
         self.count = 0
 
     def walk(self, obj):
-        if self.limit and self.count < self.limit:
+        if self.limit and self.count >= self.limit:
+            raise StopIteration
+        else:
             self.count += 1
             if IFolderish.providedBy(obj) or IBaseFolder.providedBy(obj):
                 contained = self.getContained(obj)
@@ -38,9 +44,6 @@ class CountLimitedSitewalkerSection(SiteWalkerSection):
                         yield x
             else:
                 yield obj, ()
-        else:
-            # we've reached our limit, stop iteration
-            raise StopIteration
 
 
 CSV_KEY = 'oxfama.transmogrifier.csvfiles'
@@ -56,6 +59,122 @@ CSV_KEY = 'oxfama.transmogrifier.csvfiles'
 #   }
 
 
+class SchemaDictionarySection(object):
+    """create a dictionary of field name -> field value pairs from items'
+    AT Schema
+    """
+    classProvides(ISectionBlueprint)
+    implements(ISection)
+
+    def __init__(self, transmogrifier, name, options, previous):
+        self.transmogrifier = transmogrifier
+        self.context = transmogrifier.context
+        self.previous = previous
+        self.options = options
+        self.pathkey = defaultMatcher(options, 'path-key', name, 'path')
+
+        self.exclude = filter(None, [i.strip() for i in 
+                              options.get('exclude', '').splitlines()])
+        self.schema_key = options.get('schema-key', '_schemafields').strip()
+
+    def __iter__(self):
+        for item in self.previous:
+            pathkey = self.pathkey(*item.keys())[0]
+
+            if not pathkey:
+                yield item; continue
+
+            path = item[pathkey]
+            obj = self.context.unrestrictedTraverse(str(path), None)
+            if obj is None:         # path doesn't exist
+                yield item; continue
+
+            obj_dict = self.get_base_object_identifiers(obj)
+
+            if IBaseObject.providedBy(obj):
+                # grab schema of item and convert it to a dict
+                # import pdb; pdb.set_trace( )
+                obj_schema = obj.Schema()
+                try:
+                    all_schema_keys = obj_schema.keys()
+                except AttributeError:
+                    all_schema_keys = []
+                use_keys = sorted(list(
+                    set(all_schema_keys).difference(set(self.exclude))))
+
+                field_dict = {}
+                for key in use_keys:
+                    field = obj_schema.getField(key)
+                    # simply report file fields as binary file fields, do
+                    # not attempt to output binary data as csv values :)
+                    if isinstance(field, atapi.FileField):
+                        value = u"binary file field"
+                    else:
+                        accessor = field.getAccessor(obj)
+                        value = accessor()
+                    # if we don't have a value for this, skip over it.
+                    if not value:
+                        continue
+                    # get type:uid from referenced objects
+                    if isinstance(field, atapi.ReferenceField):
+                        value = self.get_reference_value(value)
+
+                    if isinstance(value, (tuple, list)):
+                        value = u';'.join(map(force_unicode, value))
+
+                    field_dict[key] = force_unicode(value)
+
+                obj_dict.update(field_dict)
+
+            item[self.schema_key] = obj_dict
+            yield item
+
+    def get_base_object_identifiers(self, obj):
+        # ensure no acquisition
+        default = {'uuid': 'none', 'uid': 'none'}
+        if not obj:
+            return default
+
+        unwrapped = obj.aq_base
+
+        new_uuid = None
+        try:
+            new_uuid = IUUID(unwrapped)
+        except TypeError:
+            # leave at default
+            pass
+        if new_uuid:
+            default['uuid'] = new_uuid
+
+        new_uid = None
+        try:
+            new_uid = unwrapped.UID()
+        except AttributeError:
+            # leave at default
+            pass
+        if new_uid:
+            default['uid'] = new_uid
+
+        return default
+
+    def get_reference_value(self, value):
+        """get the UID and portal type of all referenced object
+        """
+        if not isinstance(value, (tuple, list)):
+            value = [value]
+
+        return_values = []
+        for obj in value:
+            ids = set(self.get_base_object_identifiers(obj).values())
+            identifier = ','.join(ids)
+            try:
+                ptype = obj.portal_type
+            except AttributeError:
+                ptype = 'unknown type'
+            return_values.append(':'.join((ptype, identifier)))
+        return return_values
+
+
 class CSVWriterSection(object):
     """parses xml files associated with item and writes output to csv files
     """
@@ -66,7 +185,8 @@ class CSVWriterSection(object):
         self.transmogrifier = transmogrifier
         self.options = options
         self.previous = previous
-        self.fileskey = defaultMatcher(options, 'files-key', name, 'files')
+        self.schemakey = defaultMatcher(
+            options, 'schema-key', name, 'schemafields')
         self.pathkey = defaultMatcher(options, 'path-key', name, 'path')
         self.typekey = defaultMatcher(options, 'type-key', name, 'type',
                                       ('portal_type', 'Type'))
@@ -77,29 +197,22 @@ class CSVWriterSection(object):
     def __iter__(self):
         for item in self.previous:
             keys = item.keys()
-            fileskey = self.fileskey(*keys)[0]
+            schemakey = self.schemakey(*keys)[0]
             pathkey = self.pathkey(*keys)[0]
             typekey = self.typekey(*keys)[0]
             
             item_path = item[pathkey]
             item_type = item[typekey]
-            filesstore = item.get(fileskey, None)
-            if not filesstore:
+            item_schema = item[schemakey]
+            if not item_schema:
                 # there are no xml files that we can parse into csv, skip
                 yield item; continue
 
             fieldnames = ['path', ]
             row = {'path': item_path}
             csv_filename = "%s.csv" % item_type.lower().replace(' ', '_')
-            for source, fileinfo in filesstore.items():
-                data = fileinfo.get('data', '')
-                if not data:
-                    # no data for this file
-                    continue
-
-                # parse file getting fieldnames and row values
-                fieldnames.append(source)
-                row.update({source: 'present'})
+            fieldnames.extend(sorted(item_schema))
+            row.update(item_schema)
 
             # put fieldnames and row into csvfileinfo
             csvfileinfo = self.storage.setdefault(
@@ -114,7 +227,7 @@ class CSVWriterSection(object):
         for filename, contents in self.storage.items():
             filepath = os.path.join(self.destination, filename)
             with open(filepath, 'w') as fh:
-                fieldnames = contents.get('fieldnames', [])
+                fieldnames = sorted(contents.get('fieldnames', []))
                 writer = UnicodeDictWriter(fh, fieldnames, restval=u'')
                 writer.writerow(dict([(fn, fn) for fn in fieldnames]))
                 writer.writerows(contents.get('rows', []))
