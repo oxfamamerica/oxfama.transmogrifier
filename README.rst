@@ -38,11 +38,11 @@ As this package is unreleased, installing it requires the `mr.developer
 First, include the package in the ``[sources]`` section of your buildout. The
 source is in a private repository, so unless you have ssh authentication for
 git set up on the machine where you are working, you'll need to use HTTP
-authentication:
+authentication::
 
     oxfama.transmogrifier = git https://github.com/oxfamamerica/oxfama.transmogrifier.git
 
-Next, include the package name in the ``eggs =`` section of the buildout.
+Next, include the package name in the ``eggs =`` section of the buildout::
 
     eggs = 
         ...
@@ -67,15 +67,15 @@ Running the Export Pipeline
 To run the export dump, you'll need to use the ``portal_setup`` as described
 above.  
 
- * Go to the ZMI
- * Find and click on the ``portal_setup`` tool
- * Click on the ``Import`` tab
- * Find and select the ``Oxfam America Site Dump`` profile in the ``Select
-   Profile or Snapshot`` dropdown.
- * Find the ``Run transmogrifier pipeline`` step in the list of available 
-   import steps.  Click the checkbox to select it.
- * At the bottom of the page, unselect the ``Include dependencies`` checkbox.
- * Click the ``import selected steps`` button.
+* Go to the ZMI
+* Find and click on the ``portal_setup`` tool
+* Click on the ``Import`` tab
+* Find and select the ``Oxfam America Site Dump`` profile in the ``Select
+  Profile or Snapshot`` dropdown.
+* Find the ``Run transmogrifier pipeline`` step in the list of available 
+  import steps.  Click the checkbox to select it.
+* At the bottom of the page, unselect the ``Include dependencies`` checkbox.
+* Click the ``import selected steps`` button.
 
 The export will run for some time.  You can see progress in the terminal if
 you are running the site in ``fg`` mode.  
@@ -98,7 +98,7 @@ The file is organized into a series of sections, each delineated by a
 The ``[transmogrifier]`` section provides a list of the pipeline sections that
 make up the export pipeline as well as the ``local_destination`` which should
 be an absolute filesystem path to the folder where the CSV output files will
-be written:
+be written::
 
     [transmogrifier]
     # configure pipeline and other required information
@@ -120,7 +120,7 @@ provide this section a starting path, if you wish to focus only on one section
 of the website. This path should be absolute, based from the ZMI (``/``). The
 object identified by the path *will be included*. The walk can be *limited*
 using the ``limit`` setting. At most this number of objects will be dumped. If
-the setting is omitted, or set to 0, all objects will be dumped:
+the setting is omitted, or set to 0, all objects will be dumped::
 
     [source]
     blueprint = oxfama.transmogrifier.sitewalker
@@ -130,7 +130,7 @@ the setting is omitted, or set to 0, all objects will be dumped:
 The ``[schemadumper]`` section controls the way in which the schema of objects
 is converted to a csv row. You may provide a list of fields to exclude. If the
 named field exists in an object's schema, it will be left out of the final csv
-file for that type.  This can be used to control the volume of data dumped:
+file for that type.  This can be used to control the volume of data dumped::
 
     [schemadumper]
     blueprint = oxfama.transmogrifier.schemadumper
