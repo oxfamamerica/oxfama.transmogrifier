@@ -23,4 +23,9 @@
       name="oxfama.transmogrifier.csvwriter"
       />
 
+  <utility
+      component=".blueprints.SchemaDictionarySection"
+      name="oxfama.transmogrifier.schemadumper"
+      />
+
 </configure>
