@@ -20,7 +20,8 @@ object within the site. In addition to schema fields, the *path* to the object
 within the plone site and the UID and UUID (if present) will be provided.
 
 For file fields (images, files, etc), the value will be a simple string
-indicating that the field is a binary file field. No file data will be dumped.
+indicating that the field is a binary file field. No file data will be contained
+in the csv export. File data will be exported separately (see below).
 
 For reference fields, the type and UID of the referenced object(s) will be
 listed. This information can be used to look up the referenced object. Simply
@@ -28,6 +29,13 @@ find the row with the given UID value in the csv file named for the type.
 
 You can control which fields are output (see *Controlling the Pipeline*
 below).
+
+All binary file data (images, media, .pdf, .doc, etc.) will be written out to
+a filesystem structure that mirrors the Plone site structure. Each file will
+be located at the same path where it is found in the site. The sole exception
+to this is if a content object has more than one binary file field, in which
+case a folder named for the Plone object will be created and each of the files
+will be written to that folder.
 
 Installing This Package
 -----------------------
@@ -139,6 +147,14 @@ file for that type.  This can be used to control the volume of data dumped::
         description
         file
         image
+
+The ``[filewriter]`` section controls the writing of binary file data to the 
+filesystem. The ``path`` variable (which defaults to the ``local_destination``
+value set above) determines the root filesystem path on the server to which
+all files will be written. This folder must exist and be writable by the user
+running Plone. No default location will be set if this value is omitted. The 
+``context`` variable determines how the files will be exported. Leave this set
+to ``directory`` to have all files written to the filesystem.
 
 The ``[writer]`` section controls the writing of csv files to the filesystem.
 There are no settings currently available for this section.
