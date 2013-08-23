@@ -19,6 +19,11 @@
       />
 
   <utility
+      component=".blueprints.FileWriterSection"
+      name="oxfama.transmogrifier.filewriter"
+      />
+
+  <utility
       component=".blueprints.CSVWriterSection"
       name="oxfama.transmogrifier.csvwriter"
       />
