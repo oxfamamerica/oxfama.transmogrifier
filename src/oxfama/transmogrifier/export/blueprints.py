@@ -1,3 +1,4 @@
+import logging
 import os.path
 
 from zope.interface import classProvides, implements
@@ -194,6 +195,7 @@ class FileWriterSection(WriterSection):
         super(FileWriterSection, self).__init__(
             transmogrifier, name, options, previous)
         self.pathkey = defaultMatcher(options, 'path-key', name, 'path')
+        self.logger = name
 
     def __iter__(self):
         for item in self.previous:
@@ -208,20 +210,25 @@ class FileWriterSection(WriterSection):
                 yield item; continue
 
             files = []
-            if IBaseObject.providedBy(obj):
-                # grab schema of item and convert it to a dict
-                obj_fields = [f.__name__ for f in obj.Schema().fields()]
-                for field in obj_fields:
-                    if obj.isBinary(field):
-                        fname, ct, data = self.extractFile(obj, field)
-                        if fname == '' or data == '':
-                            # empty file fields have empty filename and empty data
-                            # skip them
+            try:
+                if IBaseObject.providedBy(obj):
+                    # grab schema of item and convert it to a dict
+                    obj_fields = [f.__name__ for f in obj.Schema().fields()]
+                    for field in obj_fields:
+                        if obj.isBinary(field):
+                            fname, ct, data = self.extractFile(obj, field)
+                            if fname == '' or data == '':
+                                # empty file fields have empty filename and empty data
+                                # skip them
+                                continue
+                            files.append(dict(filename=fname, mimetype=ct, data=data))
+                        else:
+                            # this is not a file field, so skip it
                             continue
-                        files.append(dict(filename=fname, mimetype=ct, data=data))
-                    else:
-                        # this is not a file field, so skip it
-                        continue
+            except AttributeError, e:
+                msg = "Uanble to export binary file at %s: %s" % (path, str(e))
+                logging.getLogger(self.logger).error(msg)
+                yield item; continue
             
             if files:
                 # write out files at this point
