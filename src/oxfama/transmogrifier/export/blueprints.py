@@ -116,7 +116,7 @@ class SchemaDictionarySection(object):
                     # simply report file fields as binary file fields, do
                     # not attempt to output binary data as csv values :)
                     if (isinstance(field, atapi.FileField) and
-                        not isinstance(field, atapi.TextField):
+                        not isinstance(field, atapi.TextField)):
                         value = u"binary file field"
                     else:
                         accessor = field.getAccessor(obj)
